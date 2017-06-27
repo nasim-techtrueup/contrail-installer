@@ -1053,6 +1053,7 @@ function start_contrail() {
 
         screen_it zk  "cd $CONTRAIL_SRC/third_party/zookeeper-${ZK_VER}; ./bin/zkServer.sh start"
 
+        sleep 4
         screen_it kafka "sudo /usr/share/kafka/bin/kafka-server-start.sh /usr/share/kafka/config/server.properties"
 
 	if [[ "$CONTRAIL_DEFAULT_INSTALL" != "True" ]]; then
@@ -1064,7 +1065,7 @@ function start_contrail() {
         else
             screen_it ifmap "cd /usr/share/ifmap-server; sudo java -jar ./irond.jar" 
         fi
-        sleep 2
+        sleep 4
 
         RABBIT_OPTS="--rabbit_user ${RABBIT_USER} --rabbit_password ${RABBIT_PASSWORD} --rabbit_server ${RABBIT_IP}"
 

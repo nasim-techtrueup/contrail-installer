@@ -752,9 +752,9 @@ function replace_contrail_vrouter_agent_conf()
     gateway=$(find_gateway $PHYSICAL_INTERFACE)
 
     if [ $USE_DISCOVERY = "False" ]; then
-       check_replace_value $file CONTROL-NODE server $CFGM_IP
+       check_replace_value $file CONTROL-NODE servers $CFGM_IP
     else
-       inicomment $file CONTROL-NODE server
+       inicomment $file CONTROL-NODE servers
     fi
     check_replace_value $file  NETWORKS control_network_ip $CFGM_IP
     check_replace_value $file  VIRTUAL-HOST-INTERFACE ip $cidr
