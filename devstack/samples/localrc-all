@@ -33,3 +33,9 @@ GIT_BASE=https://git.openstack.org
 # NOVA_VIF_DRIVER=nova_contrail_vif.contrailvif.VRouterVIFDriver
 
 Q_PLUGIN_CLASS=neutron_plugin_contrail.plugins.opencontrail.contrail_plugin.NeutronPluginContrailCoreV2
+
+# Avoid using default provider net for public access, contrail expects
+# vlan/segmentation id to be avaiable for it to work and default devstack try
+# creating public network without any id association, resulting in devstack
+# installation failure
+Q_USE_PROVIDERNET_FOR_PUBLIC=False
