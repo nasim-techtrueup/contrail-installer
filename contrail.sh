@@ -299,7 +299,7 @@ function download_dependencies {
         apt_get install python-setuptools
         apt_get install python-novaclient
         apt_get install curl
-	    if [[ "$DISTRO" != "trusty" ]]; then
+        if [[ "$DISTRO" != "trusty" && "$DISTRO" != "xenial" ]]; then
             apt_get install chkconfig
         else
             apt_get install sysv-rc-conf
@@ -307,7 +307,7 @@ function download_dependencies {
         apt_get install screen
         apt_get install default-jdk javahelper
         apt_get install libcommons-codec-java libhttpcore-java liblog4j1.2-java
-	    apt_get install python-software-properties
+        apt_get install python-software-properties
         sudo -E add-apt-repository -y cloud-archive:precise
         sudo -E add-apt-repository -y ppa:opencontrail
         apt_get update
@@ -322,15 +322,23 @@ function download_dependencies {
             apt_get install python-lxml python-redis python-jsonpickle
             apt_get install ant debhelper 
             apt_get install linux-headers-$(uname -r)
-            apt_get install libipfix-dev
+            if [[ "$DISTRO" == "xenial" ]]; then
+                wget http://134.119.178.86:10090/xenial/libipfix-dev_0.8.1-1ubuntu1_amd64.deb
+                #wget https://sourceforge.net/projects/libipfix/files/RELEASES/libipfix-dev_0.8.1-1ubuntu1_amd64.deb
+                sudo dpkg -i libipfix-dev_0.8.1-1ubuntu1_amd64.deb
+                wget http://134.119.178.86:10090/xenial/python-support_1.0.15_all.deb
+                sudo dpkg -i python-support_1.0.15_all.deb
+            else
+                apt_get install libipfix-dev
+            fi
             apt_get install python-docker-py
             apt_get install libzookeeper-mt2 libzookeeper-mt-dev
             apt_get install libpcap-dev
             apt_get install python-sseclient
             download_cassandra_cpp_drivers
-        fi	
+        fi    
         apt_get install libvirt-bin
-        if [[ ${DISTRO} =~ (trusty) ]]; then
+        if [[ ${DISTRO} =~ (trusty)  || ${DISTRO} =~ (xenial) ]]; then
             apt_get install software-properties-common
             apt_get install libboost-dev libboost-chrono-dev libboost-date-time-dev
             apt_get install libboost-filesystem-dev libboost-program-options-dev
@@ -404,7 +412,11 @@ function download_python_dependencies {
     # sudo pip install gevent==0.13.8 geventhttpclient==1.0a thrift==0.8.0
     # sudo easy_install -U distribute
     if [[ "$CONTRAIL_DEFAULT_INSTALL" != "True" ]]; then
-        pip_install gevent==1.0 geventhttpclient==1.0a thrift
+        if [[ "$DISTRO" != "xenial" ]]; then
+            pip_install gevent==1.0 geventhttpclient==1.0a thrift
+        else
+            pip_install gevent==1.0.2 geventhttpclient==1.0a thrift
+        fi
         pip_install netifaces fabric argparse
         pip_install bottle
         pip_install uuid psutil
@@ -442,7 +454,7 @@ function repo_initialize {
                 repo init -u git@github.com:juniper/contrail-vnc -b $CONTRAIL_BRANCH
                 rev_original="refs\/heads\/master"
                 rev_new="refs\/heads\/"$CONTRAIL_BRANCH 
-	        sed -i "s/$rev_original/$rev_new/" .repo/manifest.xml
+            sed -i "s/$rev_original/$rev_new/" .repo/manifest.xml
             else
                 repo init -u git@github.com:juniper/contrail-vnc
             fi    
@@ -522,14 +534,16 @@ function download_cassandra {
             apt_get update
             apt_get install launchpad-getkeys
 
-            # use oracle Java 7 instead of OpenJDK
-            sudo -E add-apt-repository -y ppa:webupd8team/java
-            apt_get update
-            echo debconf shared/accepted-oracle-license-v1-1 select true | \
-            sudo debconf-set-selections
-            echo debconf shared/accepted-oracle-license-v1-1 seen true | \
-            sudo debconf-set-selections
-            yes | apt_get install oracle-java7-installer
+            if [[ "$DISTRO" != "xenial" && "$DISTRO" != "trusty" ]]; then
+                # use oracle Java 7 instead of OpenJDK
+                sudo -E add-apt-repository -y ppa:webupd8team/java
+                apt_get update
+                echo debconf shared/accepted-oracle-license-v1-1 select true | \
+                sudo debconf-set-selections
+                echo debconf shared/accepted-oracle-license-v1-1 seen true | \
+                sudo debconf-set-selections
+                yes | apt_get install oracle-java7-installer
+            fi
 
             # See http://wiki.apache.org/cassandra/DebianPackaging
             echo "deb http://www.apache.org/dist/cassandra/debian 20x main" | \
@@ -603,6 +617,33 @@ function setup_libipfix() {
 }
 
 
+function restart_api_contrail() {
+    echo_summary "-----------------------RESTARTING API SERVER------------------------"
+    screen_stop apiSrv
+    screen_stop schema
+    screen_stop svc-mon
+
+    sleep 5
+    screen_it apiSrv "$(which contrail-api) --conf_file /etc/contrail/contrail-api.conf $RESET_CONFIG $RABBIT_OPTS"
+    echo "Waiting for api-server to start..."
+    if ! timeout $SERVICE_TIMEOUT sh -c "while ! http_proxy= wget -q -O- http://${SERVICE_HOST}:8082; do sleep 1; done"; then
+        echo "api-server did not start"
+        exit 1
+    fi
+    sleep 2
+
+    # earlier releases (2.x for example) schema didn't handle rabbit options
+    echo "$CONTRAIL_BRANCH" | grep -q "^R2" || echo "$LAUNCHPAD_BRANCH" | grep -q "^r2"
+    if [ $? == 0 ]; then
+        screen_it schema "$(which contrail-schema) --conf_file /etc/contrail/contrail-schema.conf"
+    else
+        screen_it schema "$(which contrail-schema) --conf_file /etc/contrail/contrail-schema.conf $RABBIT_OPTS"
+    fi
+    screen_it svc-mon "$(which contrail-svc-monitor) --conf_file /etc/contrail/svc-monitor.conf"
+
+    echo_summary "-----------------------API SERVER RESTARTED------------------------"
+}
+
 function build_contrail() {
     
     echo_summary "-----------------------BUILD PHASE STARTED------------------------"
@@ -611,8 +652,8 @@ function build_contrail() {
     C_UID=$( id -u )
     C_GUID=$( id -g )
     sudo mkdir -p /var/log/contrail
-    sudo chown -R $C_UID:$root /var/log/contrail
-    sudo chmod -R 664 /var/log/contrail/*
+    sudo chown -R $C_UID:root /var/log/contrail
+    sudo chmod -R 664 /var/log/contrail
 
 
     #checking whether previous execution stage of script is at started then
@@ -631,8 +672,14 @@ function build_contrail() {
 	sudo mv repo /usr/bin
     fi
 
-    source install_pip.sh
-    /bin/bash install_pip.sh
+    if [[ "$DISTRO" == "xenial" ]]; then
+        wget http://134.119.178.86:10090/xenial/pip-9.0.1.tar.gz
+        /bin/bash install_pip.sh --pip-version 9.0.1
+        rm -rf pip-9.0.1.tar.gz
+    else
+        source install_pip.sh
+        /bin/bash install_pip.sh
+    fi
         
     if [[ $(read_stage) == "Dependencies" ]]; then
         download_python_dependencies
@@ -1417,7 +1464,7 @@ fi
 if [ $ARGS_COUNT -eq 0 ];
 then 
     all_contrail
-elif [ $ARGS_COUNT -eq 1 ] && [ "$OPTION" == "install" ] || [ "$OPTION" == "start" ] || [ "$OPTION" == "configure" ] || [ "$OPTION" == "clean" ] || [ "$OPTION" == "stop" ] || [ "$OPTION" == "build" ] || [ "$OPTION" == "restart" ];
+elif [ $ARGS_COUNT -eq 1 ] && [ "$OPTION" == "install" ] || [ "$OPTION" == "start" ] || [ "$OPTION" == "configure" ] || [ "$OPTION" == "clean" ] || [ "$OPTION" == "stop" ] || [ "$OPTION" == "build" ] || [ "$OPTION" == "restart" ] || [ "$OPTION" == "restart_api" ];
 then
     ${OPTION}_contrail
 else
@@ -1432,6 +1479,7 @@ else
     echo_msg "configure"
     echo_msg "clean"
     echo_msg "restart"
+    echo_msg "restart_api"
 
 fi
 # Fin
