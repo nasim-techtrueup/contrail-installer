@@ -24,7 +24,6 @@ SERVICE_PASSWORD=contrail123
 ADMIN_PASSWORD=contrail123
 
 Q_PLUGIN=opencontrail
-PHYSICAL_INTERFACE=eth0
 
 # proto for openstack bits. Use HTTPS if git is firewalled
 GIT_BASE=https://git.openstack.org
