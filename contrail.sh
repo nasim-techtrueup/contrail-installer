@@ -1071,7 +1071,7 @@ function start_contrail() {
     sleep 1
     # Set a reasonable status bar
     if [ -z "$SCREEN_HARDSTATUS" ]; then
-        SCREEN_HARDSTATUS='%{= .} %-Lw%{= .}%> %n%f %t*%{= .}%+Lw%< %-=%{g}(%{d}%H/%l%{g})'
+        SCREEN_HARDSTATUS='%{.kG} %-Lw%{.R}%> %n%f %t*%{-}%+Lw%< %-=%{g}(%{d}%H/%l%{g})'
     fi 
     screen -r $SCREEN_NAME -X hardstatus alwayslastline "$SCREEN_HARDSTATUS"
     echo_summary "-----------------------STARTING CONTRAIL---------------------------"
@@ -1348,44 +1348,47 @@ function clean_contrail() {
     echo_summary "-----------------------CLEAN PHASE STARTED-------------------------"
     python clean.py --conf_file 
     echo_summary "-----------------------CLEAN PHASE ENDED---------------------------"
-
 }
 
 function stop_contrail() {
     SAVED_SCREEN_NAME=$SCREEN_NAME
     SCREEN_NAME="contrail"
     SCREEN=$(which screen)
+    (cd $CONTRAIL_SRC/third_party/zookeeper-${ZK_VER}; ./bin/zkServer.sh stop)
+    sudo /usr/share/kafka/bin/kafka-server-stop.sh
+    kafka_pid=`ps aux | grep "[j]ava" | grep kafka | awk '{print $2}'`
+    if [ "$kafka_pid" != "" ]; then
+        sudo kill -9 $kafka_pid
+    fi
+    echo_summary "-----------------------STOPPING CONTRAIL--------------------------"
+    screen_stop agent
+    if [ "$INSTALL_PROFILE" = "ALL" ]; then
+        screen_stop ui-webs
+        screen_stop ui-jobs
+        screen_stop alarm
+        screen_stop redis-w
+        screen_stop named
+        screen_stop dns
+        screen_stop query-engine
+        screen_stop analytics-api
+        screen_stop collector
+        screen_stop control
+        screen_stop disco
+        screen_stop svc-mon
+        screen_stop schema
+        screen_stop apiSrv
+        screen_stop ifmap
+        screen_stop kafka
+        screen_stop zk
+        screen_stop cass
+        screen_stop redis
+    fi
     if [[ -n "$SCREEN" ]]; then
         SESSION=$(screen -ls | awk '/[0-9].contrail/ { print $1 }')
         if [[ -n "$SESSION" ]]; then
             screen -X -S $SESSION quit
         fi
     fi
-    (cd $CONTRAIL_SRC/third_party/zookeeper-${ZK_VER}; ./bin/zkServer.sh stop)
-    sudo /usr/share/kafka/bin/kafka-server-stop.sh
-    echo_summary "-----------------------STOPPING CONTRAIL--------------------------"
-    if [ "$INSTALL_PROFILE" = "ALL" ]; then
-        screen_stop redis
-        screen_stop cass
-        screen_stop zk
-        screen_stop ifmap
-        screen_stop kafka
-        screen_stop disco
-        screen_stop apiSrv
-        screen_stop schema
-        screen_stop svc-mon
-        screen_stop control
-        screen_stop collector
-        screen_stop analytics-api
-        screen_stop query-engine
-        screen_stop named
-        screen_stop dns
-        screen_stop redis-w
-        screen_stop alarm
-        screen_stop ui-jobs
-        screen_stop ui-webs
-    fi
-    screen_stop agent  
     rm $TOP_DIR/status/contrail/*.failure /dev/null 2>&1
     cmd=$(lsmod | grep vrouter)
     if [ $? == 0 ]; then

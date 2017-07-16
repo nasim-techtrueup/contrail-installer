@@ -1162,10 +1162,10 @@ function screen_it {
            
             run_process "$1" "$2" >$SERVICE_DIR/$SCREEN_NAME/$1.pid
         fi
-        #for the agent service the script is taken care for starting services but it is not killing the process with vnswad 
+        #for the agent service the script is taken care for starting services but it is not killing the process with contrail-vrouter-agent
         if [[ "$1" == "agent" ]]; then
             sleep 5 
-            ps aux | grep vnswad | head -1 | awk '{print $2}' >$SERVICE_DIR/$SCREEN_NAME/$1_1.pid 
+            ps aux | grep "[c]ontrail-vrouter-agent" | awk '{print $2}' >$SERVICE_DIR/$SCREEN_NAME/$1_1.pid
         fi
     else
         echo "SERVICE IS NOT ENABLED"
@@ -1196,6 +1196,8 @@ function screen_stop() {
         fi
         if [[ "$1" == "agent" ]]; then
             sudo kill -9 $(cat $SERVICE_DIR/$SCREEN_NAME/$1_1.pid)
+            # to kill agent if it was restarted after screen start
+            sudo killall -9 contrail-vrouter-agent
             rm $SERVICE_DIR/$SCREEN_NAME/$1_1.pid
         fi
         if [[ "$USE_SCREEN" = "True" ]]; then
