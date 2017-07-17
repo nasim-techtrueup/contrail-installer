@@ -672,7 +672,7 @@ function build_contrail() {
 	sudo mv repo /usr/bin
     fi
 
-    if [[ "$DISTRO" == "xenial" ]]; then
+    if [[ "$DISTRO" == "trusty" || "$DISTRO" == "xenial" ]]; then
         wget http://134.119.178.86:10090/xenial/pip-9.0.1.tar.gz
         /bin/bash install_pip.sh --pip-version 9.0.1
         rm -rf pip-9.0.1.tar.gz
