@@ -653,7 +653,7 @@ function build_contrail() {
     C_GUID=$( id -g )
     sudo mkdir -p /var/log/contrail
     sudo chown -R $C_UID:root /var/log/contrail
-    sudo chmod -R 664 /var/log/contrail
+    sudo chmod -R 664 /var/log/contrail/*
 
 
     #checking whether previous execution stage of script is at started then
