@@ -357,6 +357,7 @@ function download_dependencies {
 	apt_get install libgrok1
 	apt_get install libtokyocabinet-dev
 	apt_get install liblz4-dev
+	apt_get install libsasl2-dev
         apt_get install python-sphinx
         # ping requirements
         apt_get install sshpass expect
