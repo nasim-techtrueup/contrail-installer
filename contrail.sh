@@ -847,6 +847,11 @@ function install_contrail() {
                 apt_get install ifmap-server 
                 apt_get install python-ncclient
                 apt_get install contrail-dns
+		apt_get install libgrok-dev
+		apt_get install libpcre3-dev
+		apt_get install libgrok1
+		apt_get install libtokyocabinet-dev
+		apt_get install liblz4-dev
 
 		#Updating the messaging installed by python-nova
                 # pip_install -U oslo.messaging
