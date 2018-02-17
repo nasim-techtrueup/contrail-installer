@@ -323,6 +323,12 @@ function download_dependencies {
             apt_get install ant debhelper 
             apt_get install linux-headers-$(uname -r)
             if [[ "$DISTRO" == "xenial" ]]; then
+                apt_get install pkg-config
+                apt_get install libssl-dev
+                sudo ls -l /usr/bin/libtool
+                if [ $? != 0 ]; then
+                    sudo ln -s /usr/bin/libtoolize /usr/bin/libtool
+                fi
                 wget http://134.119.178.86:10090/xenial/libipfix-dev_0.8.1-1ubuntu1_amd64.deb
                 #wget https://sourceforge.net/projects/libipfix/files/RELEASES/libipfix-dev_0.8.1-1ubuntu1_amd64.deb
                 sudo dpkg -i libipfix-dev_0.8.1-1ubuntu1_amd64.deb
@@ -330,11 +336,11 @@ function download_dependencies {
                 sudo dpkg -i python-support_1.0.15_all.deb
             else
                 apt_get install libipfix-dev
+                apt_get install python-docker-py
+                apt_get install python-sseclient
             fi
-            apt_get install python-docker-py
             apt_get install libzookeeper-mt2 libzookeeper-mt-dev
             apt_get install libpcap-dev
-            apt_get install python-sseclient
             download_cassandra_cpp_drivers
         fi    
         apt_get install libvirt-bin
@@ -422,6 +428,9 @@ function download_python_dependencies {
             pip_install gevent==1.0 geventhttpclient==1.0a thrift
         else
             pip_install gevent==1.0.2 geventhttpclient==1.0a thrift
+            pip_install docker
+            pip_install sseclient
+            pip_install funcsigs==1.0.0 pyOpenSSL==16.2.0 pbr==2.0.0
         fi
         pip_install netifaces fabric argparse
         pip_install bottle
@@ -715,6 +724,8 @@ function build_contrail() {
         fi
 
         if [[ $(read_stage) == "repo-sync" ]]; then
+            sudo mkdir -p /tmp/cache/stack/third_party/
+            sudo chown -R $CONTRAIL_USER:$CONTRAIL_USER /tmp/cache/stack
             python third_party/fetch_packages.py
             python third_party/fetch_packages.py --file $contrail_cwd/installer.xml 
             change_stage "repo-sync" "fetch-packages"
